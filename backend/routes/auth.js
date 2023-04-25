@@ -16,16 +16,17 @@ router.post('/createuser',[
     body('email', 'Enter valid email').isEmail(),                       //similarly email valid honi chahiye
     body('password', 'Password must be 5 digit').isLength({ min: 3 }),
 ], async (req, res)=>{
+   let success = false;
   //if there are errors, retuen bad request and errors
     const errors = validationResult(req);               //errors naam ka const bana isme jo bhi req ayi wo store hui
     if (!errors.isEmpty()) {                            
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ success, errors: errors.array() });
     }  
     // check whether user with this email exist already
     try{
     let user = await User.findOne({email: req.body.email}); //user variable me us email ko store kar dia jo match kar rhi hai entered email se
     if (user) {                                             // agar user already exist email enter krta hai then
-      return res.status(400).json({error:"Sorry a user with this email already exist"})
+      return res.status(400).json({success, error:"Sorry a user with this email already exist"})
     }
     const salt = await bcrypt.genSalt(10);                     //yahan salt generate kar dia 
     const secPass = await bcrypt.hash(req.body.password, salt);     // password aur salt de dia aur us se ek hash generate kia jo secpass me store kar dia
@@ -42,7 +43,8 @@ router.post('/createuser',[
         }
       }
       const authtoken = jwt.sign(data, JWT_SECRET);      //authtoken variable me data(DATA IS JUST USER'S ID) k sath secret key bhi dedi
-      res.json({authtoken})                              //isi authtoken variable ko as a response de diya
+      success = true
+      res.json({success, authtoken})                              //isi authtoken variable ko as a response de diya
       
     }catch (error) {      //koi error aya to pata chal jayega
       console.error(error.message);   
@@ -58,6 +60,7 @@ router.post('/login', [
   body('email', 'Enter a valid email').isEmail(),          //email valid honi chahiye
   body('password', 'Password cannot be blank').exists(),    //password ka block exist krna chahiye bole to khali nhi hona chaiye
 ], async (req, res) => {
+  let success = false;              // initially success ki value false hai          
 
   // If there are errors, return Bad request and the errors
   const errors = validationResult(req);                                 //agar req marte waqt koi error ho to error me save krna hai
@@ -74,7 +77,8 @@ router.post('/login', [
 
     const passwordCompare = await bcrypt.compare(password, user.password);        //ye bcrypt function hai jo entered password aur database ka password compare krke true false return kr dega
     if(!passwordCompare){                                                          //agar false return hua to error show karna hai
-      return res.status(400).json({error: "Please try to login with correct credentials"});
+      success = false;                             // agar password same nhi hua to success false ho jayegi
+      return res.status(400).json({success, error: "Please try to login with correct credentials"});     //yahan ham success aur message rakh rhe hai agar success nhi mili to kya message user ko milega
     }
 
     const data = {
@@ -82,8 +86,9 @@ router.post('/login', [
         id: user.id
       }
     }
-    const authtoken = jwt.sign(data, JWT_SECRET);     //agar use se sahi login credentials daale to id ko sign krke bhej diya
-    res.json({authtoken})                             //response me authtoken bhej diya
+    const authtoken = jwt.sign(data, JWT_SECRET);     //agar user se sahi login credentials daale to id ko sign krke bhej diya
+    success = true;                                          // success mil gayi
+    res.json({success, authtoken})                             //response me authtoken bhej diya
 
   } catch (error) {                                     //agar upar ki process me hamaraa koi error aya to
     console.error(error.message);                  
